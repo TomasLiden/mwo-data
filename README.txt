@@ -15,6 +15,9 @@ maintenance. Transportation Research, part C, Elsevier, submitted April 2016
 to Special Issue of Integrated optimization models and algorithms in rail
 planning and control.
 
+All the data files are located in the directory ./cases
+All the python files are located in the directory ./code
+
 File descriptions
 =================
 
@@ -27,20 +30,20 @@ These directly correspond to the the classes
 	Traffic in traffic.py
 	Maintenance in maintenance.py
 
-The class TrainSets (in train_sets.py) holds some derived data sets that
-makes life easier when working with the problem (used in the plotter for example).
-
 The scheduling solutions are given as
 	<name>_sol<id>.json
 which correspond to the class
 	Solution in solution.py
 
 Note that Solution contains some statistics information about problem size,
-objective value, IP gap etc. The solution files are named with and
-<id> which should be
+objective value, IP gap etc. The solution files are named with an <id>,
+which should be
 	"opt" for a proven a optimal solution and
 	"best" for the best known solution so far
-	
+
+The class TrainSets (in train_sets.py) holds some derived data sets that
+makes life easier when working with the problem (used in plotter for example).
+
 The module persist.py contains utility functions and some base classes
 for handling the json files, loading and dumping.
 
@@ -50,7 +53,7 @@ Usage
 You might want to move the python files to some suitable place, perhaps
 as a python library or to where your other code is. Feel free to extend or
 correct as you like - but try to keep the data files in sync with the
-code. Especially, this is important if you want to share your results and
+code. This is especially important if you want to share your results and
 tests with others.
 
 The following python code shows one possible way to read and plot a solution.
@@ -63,9 +66,29 @@ from traffic import Traffic
 from maintenance import Maintenance
 from train_sets import TrainSets
 from solution import Solution
-from persist import json_dump, json_load, register
+from persist import json_load, register
 import plotter
 
+if __name__ == '__main__':
+	name = sys.argv[1]
+	sol = sys.argv[2]
+	# prepare for parsing the json files
+	register([Network, Traffic, Maintenance, Solution])
+	# read the data files
+	with open(name + "_nw.json", "r") as fp:
+        nw = json_load(fp)
+    with open(name + "_tr.json", "r") as fp:
+        tr = json_load(fp)
+    with open(name + "_ma.json", "r") as fp:
+        ma = json_load(fp)
+    # and the solution
+    with open(name + "_sol" + sol + ".json", "r") as fp:
+        sol = json_load(fp)
+    # set up the TrainSets
+    train_win = sol.opt_par["train_win"] if "train_win" in sol.opt_par else tr.period_starts[-1]
+    ts = TrainSets.setup(nw, tr, train_win)
+    # and plot..
+    plotter.plot(nw, tr, ts, ma, sol)
 
 --- EOF ---
 
