@@ -61,7 +61,7 @@ def generate_line(num_nodes, stddev, div, cap):
     capacity = {}
     # Create nodes and links with varying length
     s = 0.0
-    nodelist = names('N', 0, num_nodes)
+    nodelist = names('n', 0, num_nodes)
     for i in range(0, num_nodes):
         s0, s = s, i * 1.0 / (num_nodes - 1)
         s += (i in range(1, num_nodes - 1)) * normalvariate(0, stddev / num_nodes)
@@ -88,25 +88,25 @@ def generate_line(num_nodes, stddev, div, cap):
 
 
 def generate_network():
-    nodes = Nodes({'N1': (0.0, 0.5), 'N2': (0.2, 0.4),
-                   'N3': (0.4, 0.3), 'N4': (0.5, 0.4),
-                   'N5': (0.8, 0.2), 'N6': (1.0, 0.0),
-                   'N7': (0.1, 0.1), 'N8': (0.8, 0.5)})
-    routes = {'1-3-6': ('N1', 'N2', 'N3', 'N5', 'N6'),
-              '1-4-6': ('N1', 'N2', 'N4', 'N5', 'N6'),
-              '7-8': ('N7', 'N3', 'N4', 'N8'),
+    nodes = Nodes({'n1': (0.0, 0.5), 'n2': (0.2, 0.4),
+                   'n3': (0.4, 0.3), 'n4': (0.5, 0.4),
+                   'n5': (0.8, 0.2), 'n6': (1.0, 0.0),
+                   'n7': (0.1, 0.1), 'n8': (0.8, 0.5)})
+    routes = {'1-3-6': ('n1', 'n2', 'n3', 'n5', 'n6'),
+              '1-4-6': ('n1', 'n2', 'n4', 'n5', 'n6'),
+              '7-8': ('n7', 'n3', 'n4', 'n8'),
               '0': ()}
     single = (3, 5)
     double = (4, 8)
-    capacity = {('N1', 'N2'): double,
-                ('N2', 'N3'): single,
-                ('N3', 'N5'): single,
-                ('N5', 'N6'): double,
-                ('N2', 'N4'): single,
-                ('N4', 'N5'): single,
-                ('N3', 'N7'): single,
-                ('N3', 'N4'): single,
-                ('N4', 'N8'): single
+    capacity = {('n1', 'n2'): double,
+                ('n2', 'n3'): single,
+                ('n3', 'n5'): single,
+                ('n5', 'n6'): double,
+                ('n2', 'n4'): single,
+                ('n4', 'n5'): single,
+                ('n3', 'n7'): single,
+                ('n3', 'n4'): single,
+                ('n4', 'n8'): single
                 }
     return Network.from_routes(routes, capacity, nodes)
 

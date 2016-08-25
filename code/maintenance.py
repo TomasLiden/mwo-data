@@ -30,6 +30,13 @@ class Maintenance(Serializable):
         # @formatter:on
         self.__num_periods = num_periods  # help variable for more compact storing/retrieving of data
 
+    def scale(self, y_fac, v_fac):
+        return Maintenance(self.work_volume, self.shift_counts, self.shift_lengths,
+                           self.link_options, self.red_cap,
+                           {k: y_fac*v for k, v in self.y_cost.items()},
+                           {k: v_fac*v for k, v in self.v_cost.items()},
+                           self.__num_periods)
+
     @staticmethod
     def from_workdata(window_data, work_data, periods, network, time_variation=None):
         """
@@ -93,7 +100,7 @@ class Maintenance(Serializable):
         work_dev = float(args[2])
         w_len = [int(v) for v in args[3].split(',')]
         setup = [float(v) for v in args[4].split(',')]
-        cost_var = 1
+        cost_var = [1] * len(tr.periods)
         if len(args) > 5:
             p2 = float(args[5])
             step = 2 * pi / min(24, len(tr.periods))

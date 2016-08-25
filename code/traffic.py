@@ -32,6 +32,13 @@ class Traffic(Serializable):
         self.r_cost = r_cost            # route cost per train and route    - \sigma^r_{sr}
         # @formatter:on
 
+    def scale(self, t_fac, d_fac, r_fac):
+        return Traffic(self.periods, self.period_starts, self.period_lengths, self.trains,
+                       self.train_routes, self.min_link_time, self.min_node_time, self.pref_dep,
+                       {k: t_fac*v for k, v in self.t_cost.items()},
+                       {k: d_fac*v for k, v in self.d_cost.items()},
+                       {k: r_fac*v for k, v in self.r_cost.items()})
+
     @staticmethod
     def from_traindata(time_list, train_data, network):
         """

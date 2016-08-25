@@ -47,6 +47,7 @@ def line_picker(event):
 
 
 plot_links = []
+double_track_links = []
 work_links = []
 plot_dirs = []
 
@@ -61,9 +62,10 @@ def plot(nw, tr, ts, ma, sol):
     :param sol: a planning solution (class Solution)
     :return: the figure (class Figure)
     """
-    global plot_links, work_links, plot_dirs
+    global plot_links, double_track_links, work_links, plot_dirs
     r = max(nw.routes.items(), key=lambda kv: len(kv[1]))[0]
     plot_links = list(nw.route_links[r])
+    double_track_links = [l for l in nw.links if not nw.single_track(l)]
     work_links = list(ma.work_volume.keys())
     plot_dirs = list(nw.route_dirs[r])
 
@@ -97,7 +99,7 @@ def plot_network(nw, ax):
     ax.set_yticks([])
     ax.margins(0.05, 0.15)
     x, y = zip(*nw.nodes.values())
-    ax.scatter(x, y)
+    ax.scatter(x, y, zorder=2)
     for i, n in enumerate(nw.nodes.keys()):
         x_n[n] = x[i]
         y_n[n] = y[i]
@@ -106,7 +108,10 @@ def plot_network(nw, ax):
         fr = link[0]
         to = link[1]
         col = 'blue' if link in plot_links else 'grey'
-        line, = ax.plot([x_n[fr], x_n[to]], [y_n[fr], y_n[to]], col, picker=5)
+        line, = ax.plot([x_n[fr], x_n[to]], [y_n[fr], y_n[to]], col, picker=5, zorder=1)
+        if link in double_track_links:
+            line.set_linewidth(3)
+            ax.plot([x_n[fr], x_n[to]], [y_n[fr], y_n[to]], 'white', zorder=1)
         links[line] = link
 
 
@@ -117,6 +122,7 @@ def plot_traingraph(ax):
     ticks = []
     z = 0.0
     z_l = {}
+    # plot the y axis with station markers and horizontal bars between line sequences
     for i, l in enumerate(plot_links):
         fr = l[1 - plot_dirs[i]]
         to = l[plot_dirs[i]]
@@ -136,6 +142,7 @@ def plot_traingraph(ax):
     ax.set_title('Train and work graph')
     ax.set_yticks(ticks)
     ax.set_yticklabels(nodes)
+    # plot the solution data
     for i, l in enumerate(plot_links):
         # plot trains running over l
         for s in train_dirs[l]:
@@ -161,3 +168,12 @@ def plot_traingraph(ax):
                         py = z_l[l][0] + 0.5 * length(l)
                         ax.annotate(format(value, ".2f"), (px, py))
             ax.broken_barh(x, (z_l[l][0], length(l)), facecolors=c, linewidth=0.0)
+    # plot double track markers
+    for i, l in enumerate(plot_links):
+        if l in double_track_links:
+            y = [z_l[l][0] / z, z_l[l][1] / z]
+            # This transform fixes both x and y - but ideally we would like y to follow the data
+            # in order to adjust to manual zoom & pan
+            ax.plot([-0.004, -0.004], y, 'black', clip_on=False, transform=ax.transAxes)
+            ax.plot([ 1.004,  1.004], y, 'black', clip_on=False, transform=ax.transAxes)
+
