@@ -1,9 +1,7 @@
 """
 Rail traffic data with accompanying methods
 """
-from persist import Serializable, Multidict, names
-from random import uniform, normalvariate
-from network import dist
+from persist import Serializable, Multidict
 
 __author__ = 'tomas.liden@liu.se'
 
@@ -39,120 +37,27 @@ class Traffic(Serializable):
                        {k: d_fac*v for k, v in self.d_cost.items()},
                        {k: r_fac*v for k, v in self.r_cost.items()})
 
-    @staticmethod
-    def from_traindata(time_list, train_data, network):
-        """
-        Setting up the data structures
-        :param time_list: a sequence of time points
-        :param train_data: a dictionary with train-id as key. The data consists of:
-        1) a preferred departure time;
-        2) runtime and deviation cost;
-        3) a set of possible routes (key), with 3a) route cost and 3b) min traversal times over the links; and
-        4) traversal time (if other than zero) over nodes.
-        :param network (class Network): the rail network for which to run the traffic
-        """
-        trains = train_data.keys()
-        # Definition of time periods given as a list of nrT - 1 (clock) times
-        # -> start_times and period_lengths
-        periods = range(len(time_list) - 1)
-        period_starts = time_list[:-1]
-        period_lengths = tuple([time_list[i + 1] - time_list[i]
-                                for i in range(len(time_list) - 1)])
-        train_routes = {}
-        min_link_time = {}
-        min_node_time = {}
-        pref_dep = {}
-        t_cost = {}
-        d_cost = {}
-        r_cost = {}
-        for s, (dep, (t_cost[s], d_cost[s]), r_s, n_t) in train_data.items():
-            pref_dep[s] = dep
-            train_routes[s] = tuple(r_s.keys())
-            for n, dur in n_t.items():
-                min_node_time[s, n] = dur
-            for r, (r_cost[s, r], min_times) in r_s.items():
-                assert r in network.route_links, \
-                    "Train " + s + " has an undefined route: " + r
-                r_len = len(network.route_links.get(r))
-                assert len(min_times) == r_len, \
-                    "Incorrect number of traversal times in route %s for train %s, should be %i" % (r, s, r_len)
-                min_link_time[s, r] = min_times
-                t1 = dep + sum(min_times) + sum(min_node_time.get((s, n), 0) for n in network.route_nodes[r])
-                assert time_list[0] <= dep and t1 < time_list[-1], \
-                    "Wanted timing [%.2f, %.2f] for train %s along route %s not within planning period [%.2f, %.2f]" \
-                    % (dep, t1, s, r, time_list[0], time_list[-1])
-            start_nodes = set(network.route_nodes[r][0] for r in r_s if network.route_nodes[r])
-            end_nodes = set(network.route_nodes[r][-1] for r in r_s if network.route_nodes[r])
-            if len(start_nodes) > 1 or len(end_nodes) > 1:
-                print "WARNING: Train %s starts/ends at more than place?! Start/end nodes: %s/%s" % \
-                      (s, start_nodes, end_nodes)
-        return Traffic(periods, period_starts, period_lengths,
-                       trains, train_routes, min_link_time, min_node_time, pref_dep,
-                       t_cost, d_cost, r_cost)
-
-    @staticmethod
-    def generate(nw, dat):
-        if not nw or not dat:
-            return False
-        arg = dat.split(':')
-        nt = int(arg[0])
-        p0 = float(arg[2])
-        p1 = float(arg[3])
-        periods = range(nt)
-        period_starts = range(1, nt + 1)
-        period_lengths = [1] * len(periods)
-        od_routes = nw.od_routes()
-        if ',' not in arg[1]:
-            ns = [int(arg[1])] * len(od_routes)
-        else:
-            ns = [int(i) for i in arg[1].split(',')]
-        assert len(ns) == len(od_routes), "Must specify nr of train services (ns) for each OD relation"
-        trains = names('S', 0, sum(ns))
-        train_routes = {}
-        pref_dep = {}
-        min_link_time = {}
-        min_node_time = {}
-        t_cost = {}
-        d_cost = {}
-        r_cost = {}
-        si = 0
-        # Treat the OD in the order of their names
-        for od_ix, od in enumerate(sorted(od_routes.keys())):
-            routes = od_routes[od]
-            link_times = {}
-            travel_time = 0
-            for r in routes:
-                link_times[r] = [p1 * dist(nw.nodes[a], nw.nodes[b])
-                                 for a, b in nw.route_links[r]]
-                travel_time = max(travel_time, sum(link_times[r]))
-            # This will spread the trains roughly evenly over the period
-            # Might consider allowing them to be grouped more (by having dep0/1 in (b_t[0], b_t[-1]))
-            dep0 = uniform(period_starts[0], period_starts[1])
-            dep1 = uniform(period_starts[-1], period_starts[-1] + period_lengths[-1]) - travel_time
-            num_od_trains = ns[od_ix]
-            for i in range(num_od_trains):
-                s = trains[si]
-                train_routes[s] = tuple(routes)
-                pref_dep[s] = dep0 + i * (dep1 - dep0) / (num_od_trains - 1)
-                # variate the dep for intermediate trains
-                pref_dep[s] += (i in range(1, num_od_trains - 1)) * normalvariate(0, p0)
-                si += 1
-                for r in routes:
-                    min_link_time[s, r] = link_times[r]
-                    # using min_node_time = 0 (default value)
-                    r_cost[s, r] = 1 if len(link_times[r]) > 0 else 10
-                t_cost[s] = 1
-                d_cost[s] = 0.1
-        return Traffic(periods, period_starts, period_lengths,
-                       trains, train_routes, min_link_time, min_node_time, pref_dep,
-                       t_cost, d_cost, r_cost)
-
     def node_time(self, s, n):
         return self.min_node_time[s, n] if (s, n) in self.min_node_time else 0
 
     def min_dur(self, s, r, route_nodes, num_links=-1):
         to = num_links if num_links > 0 else len(route_nodes) - 1
         return sum(self.min_link_time[s, r][:to]) + sum([self.node_time(s, n) for n in route_nodes[:to]])
+
+    def periods_overlapping(self, a, b, cyclic=False):
+        b_t = self.period_starts
+        d_t = self.period_lengths
+        min_t = b_t[0]
+        max_t = b_t[-1] + d_t[-1]
+        assert a <= b
+        if not cyclic:
+            return (t for t in self.periods if a < b_t[t] + d_t[t] and b_t[t] < b)
+        else:
+            h = max_t - min_t
+            return (t for t in self.periods
+                    if (a < b_t[t] + d_t[t] or b > max_t and b_t[t] < b - h)
+                    and (b_t[t] < b or a < min_t and a + h < b_t[t] + d_t[t]))
+
 
     def __str__(self):
         return "\n".join([

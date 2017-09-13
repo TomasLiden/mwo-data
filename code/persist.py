@@ -65,6 +65,45 @@ class Multidict(Serializable):
         return Multidict(md)
 
 
+class SparseList(Serializable):
+    """
+    Class for storing sparse lists in a more compact form, using a list of (index, value) tuples
+    """
+
+    def __init__(self, default, values, size):
+        Serializable.__init__(self)
+        self.default = default
+        self.values = values
+        self.size = size
+
+    @staticmethod
+    def floats(ls, default_val=0.0, eps=1E-10):
+        va = []
+        for i, v in enumerate(ls):
+            if abs(v - default_val) > eps:
+                va.append((i, v))
+        return SparseList(default_val, va, len(ls))
+
+    def as_list(self):
+        l = [self.default] * self.size
+        for (i, v) in self.values:
+            l[i] = v
+        return l
+
+    def __repr__(self):
+        return "%s(%s, %s, %s)" % (self.__class__.__name__, self.default, self.values, self.size)
+
+    def to_json(self):
+        o = self.rep({"def": self.default,
+                      "va": self.values,
+                      "n": self.size})
+        return o
+
+    @staticmethod
+    def from_json(chunk):
+        return SparseList(chunk["def"], chunk["va"], chunk["n"])
+
+
 def tupleify(d):
     if isinstance(d, list):
         return tuple(tupleify(e) for e in d)
@@ -98,6 +137,8 @@ def register(types):
                            for c in types if inspect.isclass(c) and issubclass(c, Serializable)}
     if "Multidict" not in serializableClasses:
         serializableClasses[Multidict.__name__] = Multidict
+    if "SparseList" not in serializableClasses:
+        serializableClasses[SparseList.__name__] = SparseList
 
 
 serializableClasses = {}
@@ -148,3 +189,13 @@ if __name__ == "__main__":
     register(locals().values())  # or register([Multidict])
     ml = json_loads(dump)
     print ml
+
+    l1 = [0.0, 0.0, 1.0, 0.0, 5.0, 0.0]
+    sl = SparseList.floats(l1)
+    dump = json_dumps(sl)
+    print dump
+    sj = json_loads(dump)
+    print sj
+    print l1
+    print sj.as_list()
+

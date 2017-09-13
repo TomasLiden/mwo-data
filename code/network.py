@@ -1,8 +1,8 @@
 """
 The rail network data and methods for loading, saving etc
 """
-from persist import Serializable, Multidict, tupleify, names
-from random import uniform, normalvariate
+from persist import Serializable, Multidict, tupleify
+from random import uniform
 from math import sqrt, radians, sin, cos
 
 __author__ = 'tomas.liden@liu.se'
@@ -55,63 +55,6 @@ class Nodes(dict):
         return str({k: (round(v[0], 4), round(v[1], 4)) for k, v in self.items()})
 
 
-def generate_line(num_nodes, stddev, div, cap):
-    nodes = Nodes()
-    links = []
-    capacity = {}
-    # Create nodes and links with varying length
-    s = 0.0
-    nodelist = names('n', 0, num_nodes)
-    for i in range(0, num_nodes):
-        s0, s = s, i * 1.0 / (num_nodes - 1)
-        s += (i in range(1, num_nodes - 1)) * normalvariate(0, stddev / num_nodes)
-        assert s >= s0, "Negative link length - probably too large variance (p0) value..."
-        curr = nodelist[i]
-        nodes.add(curr, (s, 0.0))
-        if i:
-            link = (nodelist[i - 1], curr)
-            links.append(link)
-            capacity[link] = cap
-    # Create routes
-    routes = {nodelist[0] + '-' + nodelist[-1]: tuple(nodelist), '0': ()}
-    prev = nodelist[0]
-    n0 = 0
-    for p in range(div - 1):
-        n1 = n0 + int(round((num_nodes - 1) / div + uniform(0, 1)))
-        curr = nodelist[n1]
-        routes[prev + '-' + curr] = tuple(nodelist[n0: n1 + 1])
-        n0 = n1
-        prev = curr
-    if n0 > 0:
-        routes[prev + '-' + nodelist[-1]] = tuple(nodelist[n0: num_nodes])
-    return Network.from_routes(routes, capacity, nodes, set(links))
-
-
-def generate_network():
-    nodes = Nodes({'n1': (0.0, 0.5), 'n2': (0.2, 0.4),
-                   'n3': (0.4, 0.3), 'n4': (0.5, 0.4),
-                   'n5': (0.8, 0.2), 'n6': (1.0, 0.0),
-                   'n7': (0.1, 0.1), 'n8': (0.8, 0.5)})
-    routes = {'1-3-6': ('n1', 'n2', 'n3', 'n5', 'n6'),
-              '1-4-6': ('n1', 'n2', 'n4', 'n5', 'n6'),
-              '7-8': ('n7', 'n3', 'n4', 'n8'),
-              '0': ()}
-    single = (3, 5)
-    double = (4, 8)
-    capacity = {('n1', 'n2'): double,
-                ('n2', 'n3'): single,
-                ('n3', 'n5'): single,
-                ('n5', 'n6'): double,
-                ('n2', 'n4'): single,
-                ('n4', 'n5'): single,
-                ('n3', 'n7'): single,
-                ('n3', 'n4'): single,
-                ('n4', 'n8'): single
-                }
-    return Network.from_routes(routes, capacity, nodes)
-
-
-
 class Network(Serializable):
     """
     A rail network with nodes, links, capacities (over links) and routes together with:
@@ -129,80 +72,6 @@ class Network(Serializable):
         self.route_links = route_links
         self.route_nodes = route_nodes
         self.route_dirs = route_dirs
-
-    @staticmethod
-    def from_routes(routes, capacity, nodes=None, links=set()):
-        """
-        Setting up data structures. If nodes and links are not given they will be derived from the route data.
-        :param routes: dictionary of {name: tupleOfNodes} entries
-        :param capacity: dictionary of {link: (trackCap=int, linkCap=int)} entries,
-        where trackCap is for one direction and linkCap is sum for both directions
-        :param nodes (optional) dictionary of {name: tupleOfXyCoordinates} - i.e. map coordinates keyed by node name
-        :param links: (optional) set of node name tuples (fromNode, toNode) where fromNode < toNode
-        """
-        if not nodes:
-            nodes = Nodes()
-        route_links = {}
-        route_nodes = {}
-        route_dirs = {}
-        for name, node_list in routes.items():
-            assert len(node_list) == 0 or len(node_list) > 1, "Invalid number of nodes in route " + name
-            if len(node_list) > 1:
-                for n in node_list[0], node_list[-1]:
-                    if n not in nodes:
-                        placement = -1 if n == node_list[0] else 1
-                        nodes.add(n, None, placement)
-                num_intermediate = len(node_list) - 2
-                p0 = nodes[node_list[0]]
-                p1 = nodes[node_list[-1]]
-                for i, n in enumerate(node_list[1:-1]):
-                    if n not in nodes:
-                        a = float(i + 1) / (num_intermediate + 1)
-                        x = (1 - a) * p0[0] + a * p1[0]
-                        y = (1 - a) * p0[1] + a * p1[1]
-                        nodes.add(n, (x, y))
-            rl = []  # the links in the route
-            rd = []  # the travel directions for each link
-            # Construct the links
-            for i in range(len(node_list) - 1):
-                assert node_list[i] != node_list[i + 1], \
-                    "Route " + name + " error: Link cannot start and end in same node " + node_list[i]
-                d = int(node_list[i] < node_list[i + 1])
-                rl.append((node_list[i + 1 - d], node_list[i + d]))
-                rd.append(d)
-            rl = tuple(rl)
-            links.update(rl)
-            route_nodes[name] = node_list
-            route_links[name] = rl
-            rev_name = '-'.join(reversed(name.split('-')))
-            route_nodes[rev_name] = node_list[::-1]
-            route_links[rev_name] = tuple(rl[::-1])
-            route_dirs[name] = tuple(rd)
-            route_dirs[rev_name] = tuple([1 - i for i in rd[::-1]])
-        for l in links:
-            assert l[0] in nodes and l[1] in nodes, "Link data for %s not in node list.." % (l,)
-            assert l[0] < l[1], "Nodes given in incorrect order for link %s" % (l,)
-        for l in capacity:
-            assert l in links, "Capacity given for non-existing link %s" % (l,)
-        return Network(nodes, tuple(links), routes, capacity, route_links, route_nodes, route_dirs)
-
-    @staticmethod
-    def generate(dat):
-        if not dat:
-            return False
-        arg = dat.split(':')
-        nw_type = arg[0]
-        if nw_type[0] == 'l':
-            size = int(arg[1])
-            p0 = float(arg[2])
-            p1 = int(arg[3])
-            c_dat = arg[4].split(',')
-            cap = (int(c_dat[0]), int(c_dat[1]))
-            return generate_line(size, p0, p1, cap)
-        elif nw_type[0] == 't':
-            pass
-        elif nw_type[0] == 'n':
-            return generate_network()
 
     def od_routes(self):
         # find all OD pairs and their possible routes
