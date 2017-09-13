@@ -1,5 +1,14 @@
 Readme file for mwo-data
 
+Changelog
+---------
+2017-09-13: Changed to a more compact storing format for the solutions. Also
+updated all result files according to results produced with an improved model,
+presented in paper [2] (including four new cases N6-9). In this model the u variables
+are explicitly included and xy/xx are binary entry/exit detection variables (instead
+of the cumulative approach that was used in [1]).
+Finally, the code files have been cleaned up (removed all instance generation stuff).
+
 Introduction
 ============
 
@@ -10,10 +19,15 @@ data classes. In addition there is a plotter module that plots a given solution.
 
 The optimization problem and one possible model for solving it is described
 in the paper
-* Lidén, T, Joborn, M. Integrated planning of railway traffic and network
-maintenance. Transportation Research, part C, Elsevier, submitted April 2016
-to Special Issue of Integrated optimization models and algorithms in rail
-planning and control.
+[1] Lidén, T, Joborn, M. Integrated planning of railway traffic and network
+maintenance. Transportation Research, part C, Elsevier, 2017.
+DOI: 10.1016/j.trc.2016.11.016
+
+An improved model which also include resource considerations is presented in
+[2] Lidén, T, Waterer, H, Kalinowski, T. Resource considerations for integrated
+planning of railway traffic and maintenance windows. Journal of Rail Transport
+Planning and Management, Elsevier, submitted 2017.
+(a version of this paper has been presented at RailLille 2017)
 
 All the data files are located in the directory ./cases
 All the python files are located in the directory ./code
